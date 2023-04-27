@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
-import 'package:lecle_yoyo_player/lecle_yoyo_player.dart';
+import 'dart:developer';
 
-// // String userAgent =
-// // "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.3 Safari/605.1.15";
-// String userAgent = "curl/7.86.0";
+import 'package:chewie/chewie.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:video_player/video_player.dart';
+
 void main() {
   runApp(
     MaterialApp(
@@ -24,14 +25,53 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  late TextEditingController _inputController;
+  VideoPlayerController? _controller;
+  ChewieController? _chewieController;
 
-  String? _videoUrl;
+  late TextEditingController _inputController;
 
   @override
   void initState() {
     _inputController = TextEditingController();
     super.initState();
+  }
+
+  Future<void> _initVideo() async {
+    final videoUrl = _inputController.text;
+    if (videoUrl.isEmpty) {
+      return;
+    }
+    _controller?.dispose();
+    _chewieController?.dispose();
+
+    _controller = null;
+    _chewieController = null;
+
+    _controller = VideoPlayerController.network(
+      videoUrl,
+    );
+    log("Initializing video player...");
+    await _controller!.initialize();
+    _chewieController = _chewieController = ChewieController(
+      videoPlayerController: _controller!,
+      aspectRatio: 16 / 9,
+      autoInitialize: true,
+      fullScreenByDefault: true,
+      allowedScreenSleep: false,
+      deviceOrientationsAfterFullScreen: [
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ],
+      errorBuilder: (context, errorMessage) {
+        return const Center(
+          child: Text(
+            "Ocorreu um erro ao carregar o vídeo.",
+          ),
+        );
+      },
+    );
+    log("Video player initialized");
+    setState(() {});
   }
 
   @override
@@ -48,26 +88,23 @@ class _MyAppState extends State<MyApp> {
             decoration: const InputDecoration(
               hintText: 'Enter video URL',
             ),
-            onSubmitted: (value) {
-              setState(() {
-                _videoUrl = value;
-              });
+            onSubmitted: (_) {
+              _initVideo();
             },
           ),
           ElevatedButton(
             onPressed: () {
-              setState(() {
-                _videoUrl = _inputController.text;
-              });
+              _initVideo();
             },
             child: const Text('Play'),
           ),
-          if (_videoUrl != null && _videoUrl!.isNotEmpty)
-            YoYoPlayer(
-              aspectRatio: 16 / 9,
-              url: _videoUrl!,
-              videoStyle: const VideoStyle(),
-              videoLoadingStyle: const VideoLoadingStyle(),
+          if (_chewieController != null)
+            AspectRatio(
+              aspectRatio:
+                  _chewieController!.videoPlayerController.value.aspectRatio,
+              child: Chewie(
+                controller: _chewieController!,
+              ),
             ),
         ],
       ),
